@@ -40,7 +40,7 @@ module Mongoid
       def preload(associations, docs)
         assoc_map = associations.group_by(&:inverse_class_name)
         docs_map = {}
-        queue = [ klass.to_s ]
+        queue = [ klass.to_s ] + assoc_map.keys
 
         # account for single-collection inheritance
         queue.push(klass.root_class.to_s) if klass != klass.root_class
