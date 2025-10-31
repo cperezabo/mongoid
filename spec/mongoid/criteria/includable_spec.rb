@@ -1374,6 +1374,73 @@ describe Mongoid::Criteria::Includable do
           end
         end
       end
+
+      context "when using an embedded association" do
+        before(:all) do
+          class Invoiceable
+            include Mongoid::Document
+          end
+
+          class InvoiceItem
+            include Mongoid::Document
+            belongs_to :invoiceable
+          end
+
+          class Person
+            include Mongoid::Document
+          end
+
+          class InvoiceHeader
+            include Mongoid::Document
+            belongs_to :issuer, class_name: Person
+          end
+
+          class Invoice
+            include Mongoid::Document
+            embeds_one :header, class_name: InvoiceHeader
+            embeds_many :detail, class_name: InvoiceItem
+          end
+        end
+
+        after(:all) do
+          Object.send(:remove_const, :Invoiceable)
+          Object.send(:remove_const, :InvoiceItem)
+          Object.send(:remove_const, :Parent)
+        end
+
+        let!(:an_invoiceable) { Invoiceable.create! }
+        let!(:an_issuer) { Person.create! }
+        let!(:an_invoice) do
+          Invoice.create!(
+            header: InvoiceHeader.new(issuer: an_issuer),
+            detail: [InvoiceItem.new(invoiceable: an_invoiceable)],
+          )
+        end
+
+        context "when including the embeds_one association" do
+          let!(:result) do
+            Invoice.includes(header: :issuer).first
+          end
+
+          it "does not execute a query" do
+            expect_no_queries do
+              expect(result.header.issuer).to eq(an_issuer)
+            end
+          end
+        end
+
+        context "when including the embeds_many association" do
+          let!(:result) do
+            Invoice.includes(detail: :invoiceable).first
+          end
+
+          it "does not execute a query" do
+            expect_no_queries do
+              expect(result.detail.first.invoiceable).to eq(an_invoiceable)
+            end
+          end
+        end
+      end
     end
 
     context "when using a has_many association with an empty association" do
